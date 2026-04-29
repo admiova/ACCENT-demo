@@ -13,7 +13,7 @@ import anthropic
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = BASE_DIR / "data_preparation" / "datasets" / "dk" / "merged_data_clean.csv"
 
-# os.environ["ANTHROPIC_API_KEY"] = st.secrets.get("ANTHROPIC_API_KEY", os.environ.get("ANTHROPIC_API_KEY", ""))
+os.environ["ANTHROPIC_API_KEY"] = st.secrets.get("ANTHROPIC_API_KEY", os.environ.get("ANTHROPIC_API_KEY", ""))
 api_key = os.environ["ANTHROPIC_API_KEY"]
 MODEL = "claude-sonnet-4-6"
 
