@@ -309,7 +309,7 @@ def check_password():
     """, unsafe_allow_html=True)
     pwd = st.text_input("Password", type="password", label_visibility="collapsed", placeholder="Enter password...")
     if st.button("Continue →", use_container_width=True):
-        if pwd == st.secrets.get("APP_PASSWORD", "accent2026"):
+        if pwd == st.secrets["APP_PASSWORD"]:
             st.session_state["authenticated"] = True
             st.rerun()
         else:
