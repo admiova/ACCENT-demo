@@ -545,58 +545,62 @@ if generate:
     if not api_key:
         st.error("API key not set. Cannot run the pipeline.")
     else:
-        # ── Stage 0: Section selection ────────────────────────────────────
+        # ── Stage 0 ──────────────────────────────────────────────────────
         st.session_state["s0_state"] = "running"
-        with st.spinner("Stage 0 — Identifying relevant INT1 sections..."):
-            try:
-                section_prompt = SECTION_PROMPT.format(notice_text=row["raw_text_ntm"])
-                stage0_output = call_llm(section_prompt, max_tokens=300)
-                selected_sections = parse_sections(stage0_output)
-                section_text = build_section_text(selected_sections, int1_sections)
-                st.session_state["s0_state"] = "done"
-                st.session_state["stage0_output"] = stage0_output
-                st.session_state["selected_sections"] = selected_sections
-            except Exception as e:
-                st.session_state["s0_state"] = "error"
-                st.error(f"Stage 0 failed: {e}")
-                st.stop()
-
-        # ── Stage 1: Code extraction ──────────────────────────────────────
-        st.session_state["s1_state"] = "running"
-        with st.spinner("Stage 1 — Looking up INT1 / KORT1 codes..."):
-            try:
-                code_prompt = CODE_PROMPT.format(
-                    notice_text=row["raw_text_ntm"],
-                    section_text=section_text,
-                )
-                stage1_output = call_llm(code_prompt, max_tokens=600)
-                st.session_state["s1_state"] = "done"
-                st.session_state["stage1_output"] = stage1_output
-            except Exception as e:
-                st.session_state["s1_state"] = "error"
-                st.error(f"Stage 1 failed: {e}")
-                st.stop()
-
-        # ── Stage 2: Correction generation ───────────────────────────────
-        st.session_state["s2_state"] = "running"
-        with st.spinner("Stage 2 — Generating chart correction..."):
-            try:
-                generation_prompt = GENERATE_PROMPT.format(
-                    chart_id=row["chart_id_cc"],
-                    notice_text=row["raw_text_ntm"],
-                    int1_result=stage1_output,
-                )
-                stage2_output = call_llm(generation_prompt, max_tokens=500)
-                st.session_state["s2_state"] = "done"
-                st.session_state["stage2_output"] = stage2_output
-                st.session_state["result_gold_cc"] = row["raw_text_cc"]
-            except Exception as e:
-                st.session_state["s2_state"] = "error"
-                st.error(f"Stage 2 failed: {e}")
-                st.stop()
-
         st.rerun()
 
+if st.session_state.get("s0_state") == "running":
+    with st.spinner("Stage 0 — Identifying relevant INT1 sections..."):
+        try:
+            section_prompt = SECTION_PROMPT.format(notice_text=row["raw_text_ntm"])
+            stage0_output = call_llm(section_prompt, max_tokens=300)
+            selected_sections = parse_sections(stage0_output)
+            section_text = build_section_text(selected_sections, int1_sections)
+            st.session_state["s0_state"] = "done"
+            st.session_state["stage0_output"] = stage0_output
+            st.session_state["selected_sections"] = selected_sections
+            st.session_state["section_text"] = section_text
+            st.session_state["s1_state"] = "running"
+        except Exception as e:
+            st.session_state["s0_state"] = "error"
+            st.error(f"Stage 0 failed: {e}")
+            st.stop()
+    st.rerun()
+
+if st.session_state.get("s1_state") == "running":
+    with st.spinner("Stage 1 — Looking up INT1 / KORT1 codes..."):
+        try:
+            code_prompt = CODE_PROMPT.format(
+                notice_text=row["raw_text_ntm"],
+                section_text=st.session_state["section_text"],
+            )
+            stage1_output = call_llm(code_prompt, max_tokens=600)
+            st.session_state["s1_state"] = "done"
+            st.session_state["stage1_output"] = stage1_output
+            st.session_state["s2_state"] = "running"
+        except Exception as e:
+            st.session_state["s1_state"] = "error"
+            st.error(f"Stage 1 failed: {e}")
+            st.stop()
+    st.rerun()
+
+if st.session_state.get("s2_state") == "running":
+    with st.spinner("Stage 2 — Generating chart correction..."):
+        try:
+            generation_prompt = GENERATE_PROMPT.format(
+                chart_id=row["chart_id_cc"],
+                notice_text=row["raw_text_ntm"],
+                int1_result=st.session_state["stage1_output"],
+            )
+            stage2_output = call_llm(generation_prompt, max_tokens=500)
+            st.session_state["s2_state"] = "done"
+            st.session_state["stage2_output"] = stage2_output
+            st.session_state["result_gold_cc"] = row["raw_text_cc"]
+        except Exception as e:
+            st.session_state["s2_state"] = "error"
+            st.error(f"Stage 2 failed: {e}")
+            st.stop()
+    st.rerun()
 # ---------------------------------------------------------------------------
 # Step 4 — Results
 # ---------------------------------------------------------------------------
