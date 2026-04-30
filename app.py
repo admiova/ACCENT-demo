@@ -10,14 +10,13 @@ import anthropic
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
 DATA_PATH = BASE_DIR / "data" / "merged_data_clean.csv"
 
 os.environ["ANTHROPIC_API_KEY"] = st.secrets.get("ANTHROPIC_API_KEY", os.environ.get("ANTHROPIC_API_KEY", ""))
 api_key = os.environ["ANTHROPIC_API_KEY"]
 MODEL = "claude-sonnet-4-6"
 
-BASE_DIR = Path(__file__).resolve().parent
 INT1_PATH = BASE_DIR.parent / "int1_processing" / "KORT_1_INT_1_2022_(lr).pdf"
 INT1_CACHE_PATH = BASE_DIR / "int1_cache.json"
 
