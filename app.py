@@ -478,6 +478,19 @@ input_mode = st.radio(
     horizontal=True,
     label_visibility="collapsed",
 )
+notice_key = ""
+gold_cc = None
+chart_id = "—"
+notice_text = ""
+
+EXAMPLE_NOTICE = """NM-145-26
+Denmark. The Little Belt. Flensborg Fjord. Krumbæk. Stone reef to established.
+Details A stone reef has been established in an area bounded by a line through positions 1) - 2).
+1) 2) 54° 52.180'N - 009° 44.600'E
+54° 52.151'N - 009° 44.640'E
+Depths down to 1m exist in the area.
+Charts 155, 154, 195, 152 (INT 1373), 103 (INT 1303).
+(Havørred A/S 24 February 2026. Published 25 February 2026)"""
 
 if input_mode == "Select from dataset":
     selected_label = st.selectbox(
@@ -493,15 +506,13 @@ if input_mode == "Select from dataset":
     notice_key  = selected_label
 
 else:
+
     notice_text = st.text_area(
         "Paste notice text here",
+        value=EXAMPLE_NOTICE,
         height=200,
-        placeholder="Paste the full Notice to Mariners text here...",
         label_visibility="collapsed",
     )
-    gold_cc    = None
-    chart_id   = "—"
-    notice_key = f"custom::{notice_text[:80]}"
 
 # Reset pipeline state when input changes
 if st.session_state.get("last_notice") != notice_key:
