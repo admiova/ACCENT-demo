@@ -78,41 +78,41 @@ def load_int1_sections() -> dict:
 # ---------------------------------------------------------------------------
 
 SECTION_PROMPT = """You are a nautical charting expert.
-
+ 
 Your task is to identify which INT1 / KORT1 sections are relevant for the Notice to Mariners.
-
+ 
 Instructions:
-- Read the notice carefully.
-- Identify the main chart-relevant feature or hazard.
-- Distinguish between the main feature and any secondary feature such as marking or buoying.
-- Prioritize the section for the main charted feature first.
-- Return only sections that are clearly relevant.
+- Read the notice carefully and identify the main chart-relevant feature or hazard.
+- Focus on what is being charted, not how it is marked or buoyed.
+- Buoys, beacons and lights are secondary marking features — only include section Q (Buoys and Beacons) or P (Lights) if the buoy or light IS the main charted feature.
+- Include additional sections only if they are clearly relevant for distinct secondary features.
+- Return only sections that are clearly relevant. Fewer is better.
 - Use only section letters from the list below.
-- Choose based on charting representation, not only ordinary word meaning.
-
+- Choose based on charting representation, not ordinary word meaning.
+ 
 Notice:
 {notice_text}
-
+ 
 Available INT1 / KORT1 sections:
-C - Natural Features - coatsline, relief, water features, lava, supplementary national symbols
-D - Cultural Features - settlements/buildings, roads/railways/airfields, other cultural features
-E - Landmarks
-F - Ports - protection structures, harbour installations, canals and barrages, transhipment facilities, public buildings
-G - Topographic Terms
-H - Tides and Currents - terms relating to tidal levels, tide tables, tidal streams and currents
-I - Depths - soundings, depths in fairways and areas, depth contours
-J - Nature of the Seabed - types of seabed, intertidal areas, qualifying terms
-K - Rocks, Wrecks and Obstructions - rocks, wrecks and fouls, obstructions and aquaculture
-L - Offshore Installations - platforms and moorings, underwater installations, submarine cables, submarine pipes
-M - Tracks and Routes - routeing measures, radar surveillance systems, radio reporting, ferries
-N - Areas and Limits - restricted areas, military practice areas, international boundaries and national limits
-O - Hydrographic Terms
-P - Lights - light structures and major floating lights, light characters, colours of lights and marks
-Q - Buoys and Beacons
-R - Fog Signals
-S - Radar, Radio and Satellite Navigation Systems
-T - Services
-U - Small Craft (Leisure) Facilities
+C - Natural Features — coastline, relief, water features, lava, supplementary national symbols
+D - Cultural Features — settlements/buildings, roads/railways/airfields, other cultural features
+E - Landmarks — landmarks visible from sea, religious buildings, towers, chimneys
+F - Ports — protection structures, harbour installations, canals and barrages, transhipment facilities
+G - Topographic Terms — general geographical and topographic terminology
+H - Tides and Currents — tidal levels, tide tables, tidal streams and currents
+I - Depths — soundings, depths in fairways and areas, depth contours
+J - Nature of the Seabed — types of seabed, intertidal areas, qualifying terms
+K - Rocks, Wrecks and Obstructions — rocks, wrecks and fouls, obstructions and aquaculture
+L - Offshore Installations — platforms and moorings, underwater installations, submarine cables, submarine pipes
+M - Tracks and Routes — routeing measures, radar surveillance, radio reporting, ferries
+N - Areas and Limits — restricted areas, military practice areas, international boundaries
+O - Hydrographic Terms — general hydrographic terminology
+P - Lights — light structures and major floating lights, light characters, colours of lights and marks
+Q - Buoys and Beacons — lateral, cardinal, isolated danger, safe water, special marks
+R - Fog Signals — fog signal types and symbols
+S - Radar, Radio and Satellite Navigation Systems — radar, radio beacons, GNSS
+T - Services — pilotage, vessel traffic services, rescue stations
+U - Small Craft (Leisure) Facilities — marinas, yacht berths, facilities for leisure craft
 
 Return exactly in this format:
 
@@ -166,13 +166,14 @@ Write the corresponding chart correction.
 
 Rules:
 - Use the full notice as the main source of information.
-- Use the INT1 / KORT1 code(s) only as supporting chart-symbol guidance.
+- You MUST select the single most relevant INT1 / KORT1 code for the main charted feature and include it in the correction in the format (INT 1 – X 00) where X is the section letter and 00 is the code number. Use the reasoning provided to guide your selection. Every correction should include code for main feature..
+- Use the INT1 / KORT1 code(s) only as supporting chart-symbol guidance, not as a source of factual information.
 - Do NOT add or infer new factual information.
 - Be concise and action-focused.
-- Use standard chart correction style.
 - Use numbering format: 1), 2), etc.
 - Keep coordinate lines separate from descriptive/action text.
 - Do not include explanations or extra commentary.
+- Generate exactly ONE chart correction. If the notice references multiple charts, select one chart at random and generate the correction for that chart only.
 - Match the style and structure of official chart corrections shown in examples below.
 
 Example 1:
@@ -308,7 +309,7 @@ def check_password():
     """, unsafe_allow_html=True)
     pwd = st.text_input("Password", type="password", label_visibility="collapsed", placeholder="Enter password...")
     if st.button("Continue →", use_container_width=True):
-        if pwd == st.secrets["APP_PASSWORD"]:
+        if pwd == st.secrets.get("APP_PASSWORD", "accent2026"):
             st.session_state["authenticated"] = True
             st.rerun()
         else:
@@ -448,8 +449,8 @@ st.markdown("""
 with st.sidebar:
     st.markdown("### Settings")
     st.markdown("---")
-    st.markdown("**Model**")
-    st.markdown(f"`{MODEL}`")
+    # st.markdown("**Model**")
+    # st.markdown(f"`{MODEL}`")
     st.markdown("---")
     st.markdown("**Pipeline**")
     st.markdown("Stage 0 — Section retrieval  \nStage 1 — INT1 code lookup  \nStage 2 — Correction generation")
@@ -466,46 +467,80 @@ with st.sidebar:
 df = load_data()
 
 # ---------------------------------------------------------------------------
-# Step 1 — Notice selector
+# Step 1 — Notice input
 # ---------------------------------------------------------------------------
 
-st.markdown('<div class="section-label">Step 1 — Select a Notice to Mariners</div>', unsafe_allow_html=True)
-selected_label = st.selectbox(
-    "Choose a notice",
-    options=df["label"].tolist(),
-    index=0,
+st.markdown('<div class="section-label">Step 1 — Select or enter a Notice to Mariners</div>', unsafe_allow_html=True)
+
+input_mode = st.radio(
+    "Input mode",
+    options=["Select from dataset", "Enter custom notice"],
+    horizontal=True,
     label_visibility="collapsed",
 )
-row = df[df["label"] == selected_label].iloc[0]
 
-# Reset pipeline state when notice changes
-if st.session_state.get("last_notice") != selected_label:
+if input_mode == "Select from dataset":
+    selected_label = st.selectbox(
+        "Choose a notice",
+        options=df["label"].tolist(),
+        index=0,
+        label_visibility="collapsed",
+    )
+    row = df[df["label"] == selected_label].iloc[0]
+    notice_text = row["raw_text_ntm"]
+    chart_id    = row["chart_id_cc"]
+    gold_cc     = row["raw_text_cc"]
+    notice_key  = selected_label
+
+else:
+    notice_text = st.text_area(
+        "Paste notice text here",
+        height=200,
+        placeholder="Paste the full Notice to Mariners text here...",
+        label_visibility="collapsed",
+    )
+    gold_cc    = None
+    chart_id   = "—"
+    notice_key = f"custom::{notice_text[:80]}"
+
+# Reset pipeline state when input changes
+if st.session_state.get("last_notice") != notice_key:
     for k in ["s0_state", "s1_state", "s2_state", "stage0_output", "stage1_output", "stage2_output", "result_gold_cc"]:
         st.session_state.pop(k, None)
-    st.session_state["last_notice"] = selected_label
+    st.session_state["last_notice"] = notice_key
 
 # ---------------------------------------------------------------------------
 # Step 2 — Input documents
 # ---------------------------------------------------------------------------
 
-st.markdown('<div class="section-label">Step 2 — Review input documents</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-label">Step 2 — Review input</div>', unsafe_allow_html=True)
 
-col_ntm, col_gold = st.columns(2)
-with col_ntm:
-    st.markdown(f"""
+if input_mode == "Select from dataset":
+    col_ntm, col_gold = st.columns(2)
+    with col_ntm:
+        st.markdown(f"""
 <div class="result-panel">
   <div class="result-panel-header int1">Notice to Mariners (input)</div>
-  <div class="result-panel-body">{row['raw_text_ntm']}</div>
+  <div class="result-panel-body">{notice_text}</div>
 </div>
 """, unsafe_allow_html=True)
-
-with col_gold:
-    st.markdown(f"""
+    with col_gold:
+        st.markdown(f"""
 <div class="result-panel">
   <div class="result-panel-header gold">Gold Standard Chart Correction</div>
-  <div class="result-panel-body">{row['raw_text_cc']}</div>
+  <div class="result-panel-body">{gold_cc}</div>
 </div>
 """, unsafe_allow_html=True)
+else:
+    if notice_text.strip():
+        st.markdown(f"""
+<div class="result-panel">
+  <div class="result-panel-header int1">Notice to Mariners (input)</div>
+  <div class="result-panel-body">{notice_text}</div>
+</div>
+""", unsafe_allow_html=True)
+    else:
+        st.info("Paste a notice above to continue.")
 
 # ---------------------------------------------------------------------------
 # Step 3 — Run pipeline
@@ -539,27 +574,25 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.markdown("")
-generate = st.button("▶  Generate chart correction", use_container_width=True)
+generate = st.button("▶  Generate chart correction", use_container_width=True, disabled=not notice_text.strip())
 
 if generate:
     if not api_key:
         st.error("API key not set. Cannot run the pipeline.")
     else:
-        # ── Stage 0 ──────────────────────────────────────────────────────
         st.session_state["s0_state"] = "running"
+        st.session_state["section_text_temp"] = None
         st.rerun()
 
 if st.session_state.get("s0_state") == "running":
     with st.spinner("Stage 0 — Identifying relevant INT1 sections..."):
         try:
-            section_prompt = SECTION_PROMPT.format(notice_text=row["raw_text_ntm"])
-            stage0_output = call_llm(section_prompt, max_tokens=300)
+            stage0_output = call_llm(SECTION_PROMPT.format(notice_text=notice_text), max_tokens=300)
             selected_sections = parse_sections(stage0_output)
-            section_text = build_section_text(selected_sections, int1_sections)
             st.session_state["s0_state"] = "done"
             st.session_state["stage0_output"] = stage0_output
             st.session_state["selected_sections"] = selected_sections
-            st.session_state["section_text"] = section_text
+            st.session_state["section_text_temp"] = build_section_text(selected_sections, int1_sections)
             st.session_state["s1_state"] = "running"
         except Exception as e:
             st.session_state["s0_state"] = "error"
@@ -570,11 +603,10 @@ if st.session_state.get("s0_state") == "running":
 if st.session_state.get("s1_state") == "running":
     with st.spinner("Stage 1 — Looking up INT1 / KORT1 codes..."):
         try:
-            code_prompt = CODE_PROMPT.format(
-                notice_text=row["raw_text_ntm"],
-                section_text=st.session_state["section_text"],
-            )
-            stage1_output = call_llm(code_prompt, max_tokens=600)
+            stage1_output = call_llm(CODE_PROMPT.format(
+                notice_text=notice_text,
+                section_text=st.session_state.get("section_text_temp", ""),
+            ), max_tokens=600)
             st.session_state["s1_state"] = "done"
             st.session_state["stage1_output"] = stage1_output
             st.session_state["s2_state"] = "running"
@@ -587,20 +619,20 @@ if st.session_state.get("s1_state") == "running":
 if st.session_state.get("s2_state") == "running":
     with st.spinner("Stage 2 — Generating chart correction..."):
         try:
-            generation_prompt = GENERATE_PROMPT.format(
-                chart_id=row["chart_id_cc"],
-                notice_text=row["raw_text_ntm"],
+            stage2_output = call_llm(GENERATE_PROMPT.format(
+                chart_id=chart_id,
+                notice_text=notice_text,
                 int1_result=st.session_state["stage1_output"],
-            )
-            stage2_output = call_llm(generation_prompt, max_tokens=500)
+            ), max_tokens=500)
             st.session_state["s2_state"] = "done"
             st.session_state["stage2_output"] = stage2_output
-            st.session_state["result_gold_cc"] = row["raw_text_cc"]
+            st.session_state["result_gold_cc"] = gold_cc
         except Exception as e:
             st.session_state["s2_state"] = "error"
             st.error(f"Stage 2 failed: {e}")
             st.stop()
     st.rerun()
+
 # ---------------------------------------------------------------------------
 # Step 4 — Results
 # ---------------------------------------------------------------------------
@@ -608,20 +640,29 @@ if st.session_state.get("s2_state") == "running":
 if "stage2_output" in st.session_state:
     st.markdown('<div class="section-label" style="margin-top:1.5rem">Step 4 — Review results</div>', unsafe_allow_html=True)
 
-    col_gen, col_ref = st.columns(2)
-    with col_gen:
-        st.markdown(f"""
+    gold = st.session_state.get("result_gold_cc")
+
+    if gold:
+        col_gen, col_ref = st.columns(2)
+        with col_gen:
+            st.markdown(f"""
 <div class="result-panel">
   <div class="result-panel-header generated">⚙ Model output — Generated correction</div>
   <div class="result-panel-body">{st.session_state['stage2_output']}</div>
 </div>
 """, unsafe_allow_html=True)
-
-    with col_ref:
-        st.markdown(f"""
+        with col_ref:
+            st.markdown(f"""
 <div class="result-panel">
   <div class="result-panel-header gold">✓ Gold standard correction</div>
-  <div class="result-panel-body">{st.session_state['result_gold_cc']}</div>
+  <div class="result-panel-body">{gold}</div>
+</div>
+""", unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+<div class="result-panel">
+  <div class="result-panel-header generated">⚙ Model output — Generated correction</div>
+  <div class="result-panel-body">{st.session_state['stage2_output']}</div>
 </div>
 """, unsafe_allow_html=True)
 
